@@ -1,0 +1,127 @@
+#!/usr/bin/env python3
+# coding=utf-8
+
+# LIBRARIES ###################################################################
+
+import os
+import sys
+
+# HELP AND ARGUMENTS ##########################################################
+
+if sys.stdin.isatty():
+    print("usage: <NAME>_<VERSION>.<EXT> | sort-by-version <FLAG>")
+    exit(1)
+
+if "-a" in sys.argv or "--all" in sys.argv:
+    show_all = True
+else:
+    show_all = False
+
+
+# FUNCTIONS ###################################################################
+
+def print_err(text):
+    sys.stderr.write('sort-by-version failed: ' + str(text) + '\n')
+    exit(1)
+
+
+def stdin_to_list():
+    list_clean = []
+    list_final = []
+
+    for line in sys.stdin:
+        current_line = os.path.basename(line).rstrip('\n')
+        # only add relevant lines, skips folders
+        if "_" in current_line:
+            list_clean.append(current_line)
+
+    for j in list_clean:
+        if j.count("_") > 1:
+            print_err("more than one underscore in: " + j)
+
+        if "." not in j:
+            print_err("missing dot before filename extension in: " + j)
+
+        pkg = os.path.basename(j).rstrip('\n')
+        list_pkg = []
+        pkg_name = pkg.split("_")[0]
+        pkg_ver_ext = pkg.split("_")[1]
+        pkg_ver = pkg_ver_ext.rsplit(".", 1)[0]
+        pkg_ext = pkg_ver_ext.rsplit(".", 1)[1]
+        list_pkg.append(pkg_name)
+        list_pkg.append(pkg_ver)
+        list_pkg.append(pkg_ext)
+        list_final.append(list_pkg)
+
+        list.sort(list_final)
+
+    return list_final
+
+
+def find_latest_version():
+    list_packages = stdin_to_list()
+    list_rows_filtered = []
+
+    # find each individual program
+    list_pkg_groups = []
+    for m in list_packages:
+        pkg_uniq = m[0].lower() + "." + m[2].lower()
+        if pkg_uniq not in list_pkg_groups:
+            list_pkg_groups.append(pkg_uniq)
+
+    # for all versions of all packages
+    for current_pkg_group in list_pkg_groups:
+        # for all versions of each individual package
+        dict_current_pkg_group_sortable = {}
+        for j in list_packages:
+            pkg_nam = j[0]
+            pkg_ver = j[1]
+            pkg_ext = j[2]
+            pkg_cluster = pkg_nam.lower() + "." + pkg_ext.lower()
+
+            # only iterate over one group (cluster of files) at a time
+            if pkg_cluster == current_pkg_group:
+                # find maximum length of each sub versions
+                # for ver_sub in pkg_ver:
+                ver_sub = pkg_ver
+                current_dots = ver_sub.count('.')
+                max_dots = 30
+                for char in ver_sub:
+                    if char not in "0123456789.":
+                        ver_sub = ver_sub.replace(char, '0')
+                if current_dots < max_dots:
+                    dots_to_add = max_dots - current_dots
+                    ver_sub = ver_sub + ".0" * dots_to_add
+                # create a new dict, which is now sortable by verion
+                dict_current_pkg_group_sortable.update({ver_sub: j})
+
+        # sort by latest version
+        list_latest_version = []
+        for key in sorted(dict_current_pkg_group_sortable,
+                          key=lambda s: [int(u) for u in s.split('.')]):
+            list_latest_version.append(
+                dict_current_pkg_group_sortable.get(key))
+
+        # debug list_latest_version
+        if show_all:
+            for t in list_latest_version:
+                print(t[0] + "_" + t[1] + "." + t[2])
+
+        # get only the package with the latest version
+        latest_version = list_latest_version[-1]
+        list_rows_filtered.append(latest_version)
+
+    # return latest version for each package
+    if not show_all:
+        for m in list_rows_filtered:
+            print(m[0] + "_" + m[1] + "." + m[2])
+        return list_rows_filtered
+
+
+def main():
+    find_latest_version()
+
+
+# MAIN ########################################################################
+
+main()
